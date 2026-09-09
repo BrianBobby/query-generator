@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generated SQL &mdash; SQL Query Generator</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="page">
+      <div class="page-header">
+        <a class="back-link" href="/">&larr; Ask another question</a>
+        <div class="header-actions">
+          <button type="button" id="download-btn" class="secondary-btn">
+            Download .sql
+          </button>
+        </div>
+      </div>
+
+      <div class="identity-card">
+        <p class="full-name">Your request</p>
+        <div class="meta-list"><%= question %></div>
+      </div>
+
+      <section class="record-section">
+  <h2><%= heading %></h2>
+
+  <div class="sql-card">
+    <div class="sql-toolbar">
+      <span>T-SQL / SQL Server</span>
+      <button type="button" class="copy-btn" id="copy-btn">Copy</button>
+    </div>
+
+    <pre><code id="sql-code"><%= sql %></code></pre>
+  </div>
+</section>
+
+      <% if (description) { %>
+        <section class="record-section">
+          <h2>Result summary</h2>
+          <div class="insight-card">
+            <p class="insight-title"><%= description %></p>
+          </div>
+        </section>
+      <% } %>
+
+      <% if (notFound) { %>
+        <section class="record-section">
+          <h2>If no records are found</h2>
+          <p class="notfound-text"><%= notFound %></p>
+        </section>
+      <% } %>
+    </div>
+
+    <script id="sql-raw" type="text/plain"><%- sql %></script>
+    <script>
+      (function () {
+        var sqlText = document.getElementById("sql-raw").textContent.trim();
+        var copyBtn = document.getElementById("copy-btn");
+        var downloadBtn = document.getElementById("download-btn");
+
+        function copySql(btn) {
+          navigator.clipboard.writeText(sqlText).then(function () {
+            var original = btn.textContent;
+            btn.textContent = "Copied!";
+            setTimeout(function () {
+              btn.textContent = original;
+            }, 1500);
+          });
+        }
+
+        copyBtn.addEventListener("click", function () {
+          copySql(copyBtn);
+        });
+
+        downloadBtn.addEventListener("click", function () {
+          var blob = new Blob([sqlText], { type: "application/sql" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = "query.sql";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      })();
+    </script>
+  </body>
+</html>

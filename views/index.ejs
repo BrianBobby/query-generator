@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Query Generator</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <h1>SQL Query Generator</h1>
+      <p>Describe what you want to know about your accounts data in plain English, and get back a ready-to-run SQL Server query.</p>
+    </header>
+
+    <% if (error) { %>
+      <div class="error-banner"><%= error %></div>
+    <% } %>
+
+    <div class="upload-card">
+      <form id="query-form" action="/generate" method="POST">
+        <div class="query-field">
+          <label for="question">What do you want to know?</label>
+          <textarea
+            id="question"
+            name="question"
+            placeholder="e.g. Show me the trial balance as on 31/03/2026"
+            required
+          ><%= question %></textarea>
+        </div>
+
+        <div class="submit-row">
+          <button type="submit" class="primary-btn" id="submit-btn">Generate SQL</button>
+          <span class="status-text" id="status-text"></span>
+        </div>
+      </form>
+    </div>
+
+    </div>
+
+  <script>
+    const form = document.getElementById('query-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const statusText = document.getElementById('status-text');
+
+    form.addEventListener('submit', () => {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Generating...';
+      statusText.textContent = 'This can take a few seconds.';
+    });
+  </script>
+</body>
+</html>
