@@ -25,15 +25,19 @@ app.get("/", (req, res) => {
 });
 
 /*
- * WEBPAGE FLOW:
+ * WEBPAGE FLOW (first question of a new conversation):
  *
  * User types a request
  * ↓
- * OpenAI (schema + business rules as context)
+ * generateSql({ question }) -- no conversationId, so a new OpenAI
+ * conversation is created
+ * ↓
+ * OpenAI (schema + business rules as instructions, on every call)
  * ↓
  * SQL
  * ↓
- * Result page
+ * result.ejs, including the new conversationId so the page's
+ * "Continue this query" follow-up box can reuse it
  */
 app.post("/generate", async (req, res) => {
   const question = (req.body.question || "").trim();
@@ -46,14 +50,16 @@ app.post("/generate", async (req, res) => {
   }
 
   try {
-    const result = await generateSql(question);
+    const result = await generateSql({ question });
 
     res.render("result", {
+      conversationId: result.conversationId,
       question: result.question,
       heading: result.heading,
       sql: result.sql,
       description: result.description,
       notFound: result.notFound,
+      isEmptyResult: result.isEmptyResult,
     });
   } catch (error) {
     console.error(error);
@@ -65,21 +71,56 @@ app.post("/generate", async (req, res) => {
   }
 });
 
+/*
+ * POST API -- shared by the result page's "Continue this query"
+ * follow-up box AND any external caller. This is the SAME generateSql
+ * logic the browser's /generate route uses above -- no duplicated
+ * SQL-generation code between the two.
+ *
+ * POST /api/generate-sql   { "question": "...", "conversationId"?: "..." }
+ *
+ * No conversationId       -> starts a new OpenAI conversation.
+ * conversationId provided -> continues that existing conversation.
+ *
+ * Returns JSON: { conversationId, question, heading, sql, description, notFound, isEmptyResult }
+ */
 app.post("/api/generate-sql", express.json(), async (req, res) => {
   const question = (req.body?.question || "").trim();
+  const conversationId = req.body?.conversationId || undefined;
 
   if (!question) {
     return res.status(400).json({
-      error: "Provide a 'question' field describing what you want.",
+      error: "Please provide a question.",
     });
   }
 
   try {
-    const result = await generateSql(question);
-    return res.status(200).json(result);
+    const result = await generateSql({ question, conversationId });
+
+    return res.status(200).json({
+      conversationId: result.conversationId,
+      question: result.question,
+      heading: result.heading,
+      sql: result.sql,
+      description: result.description,
+      notFound: result.notFound,
+      isEmptyResult: result.isEmptyResult,
+    });
   } catch (error) {
     console.error(error);
-    return res.status(422).json({
+
+    const message = String(error?.message || "");
+    const looksLikeBadConversation =
+      /conversation/i.test(message) &&
+      /(not found|invalid|does not exist)/i.test(message);
+
+    if (looksLikeBadConversation) {
+      return res.status(400).json({
+        error: "That conversation could not be found. Please start a new one.",
+      });
+    }
+
+    return res.status(500).json({
       error: `Couldn't generate a query: ${error.message}`,
     });
   }

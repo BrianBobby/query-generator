@@ -3,13 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Generated SQL &mdash; SQL Query Generator</title>
+    <title id="page-title"><%= heading %> &mdash; SQL Query Generator</title>
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <div class="page">
+    <div
+      class="page"
+      id="conversation-page"
+      data-conversation-id="<%= conversationId %>"
+    >
       <div class="page-header">
-        <a class="back-link" href="/">&larr; Ask another question</a>
+        <a class="back-link" href="/">+ New Query</a>
         <div class="header-actions">
           <button type="button" id="download-btn" class="secondary-btn">
             Download .sql
@@ -18,46 +22,204 @@
       </div>
 
       <div class="identity-card">
-        <p class="full-name">Your request</p>
-        <div class="meta-list"><%= question %></div>
+        <p class="full-name" id="report-heading"><%= heading %></p>
+        <div class="meta-list" id="report-question">"<%= question %>"</div>
       </div>
 
       <section class="record-section">
-  <h2><%= heading %></h2>
-
-  <div class="sql-card">
-    <div class="sql-toolbar">
-      <span>T-SQL / SQL Server</span>
-      <button type="button" class="copy-btn" id="copy-btn">Copy</button>
-    </div>
-
-    <pre><code id="sql-code"><%= sql %></code></pre>
-  </div>
-</section>
-
-      <% if (description) { %>
-        <section class="record-section">
-          <h2>Result summary</h2>
-          <div class="insight-card">
-            <p class="insight-title"><%= description %></p>
+        <h2>Generated SQL query</h2>
+        <div class="sql-card">
+          <div class="sql-toolbar">
+            <span id="sql-toolbar-label"><%= isEmptyResult ? "Note" : "T-SQL / SQL Server" %></span>
+            <button type="button" class="copy-btn" id="copy-btn">Copy</button>
           </div>
-        </section>
-      <% } %>
+          <pre><code id="sql-code"><%= sql %></code></pre>
+        </div>
+      </section>
 
-      <% if (notFound) { %>
-        <section class="record-section">
-          <h2>If no records are found</h2>
-          <p class="notfound-text"><%= notFound %></p>
-        </section>
-      <% } %>
+      <div id="result-details">
+        <% if (isEmptyResult) { %>
+          <% if (description) { %>
+            <section class="record-section">
+              <h2>Why this can't be run</h2>
+              <p class="notfound-text"><%= description %></p>
+            </section>
+          <% } %>
+        <% } else { %>
+          <% if (description) { %>
+            <section class="record-section">
+              <h2>Result summary</h2>
+              <div class="insight-card">
+                <p class="insight-title"><%= description %></p>
+              </div>
+            </section>
+          <% } %>
+
+          <% if (notFound) { %>
+            <section class="record-section">
+              <h2>If no records are found</h2>
+              <p class="notfound-text"><%= notFound %></p>
+            </section>
+          <% } %>
+        <% } %>
+      </div>
+
+      <section class="record-section">
+        <h2>Continue this query</h2>
+        <div class="upload-card">
+          <div class="query-field">
+            <label for="followup-question">Ask a follow-up about this same report</label>
+            <textarea
+              id="followup-question"
+              class="app-textarea"
+              placeholder="e.g. Only show the top 5, or: only March, or: sort lowest first"
+            ></textarea>
+          </div>
+
+          <div class="submit-row">
+            <button type="button" class="primary-btn" id="followup-btn">Refine Query</button>
+            <span class="status-text" id="followup-status"></span>
+          </div>
+
+          <div class="error-banner inline" id="followup-error" style="display: none"></div>
+        </div>
+      </section>
     </div>
 
     <script id="sql-raw" type="text/plain"><%- sql %></script>
     <script>
       (function () {
+        var pageEl = document.getElementById("conversation-page");
+        var conversationId = pageEl.getAttribute("data-conversation-id");
+
         var sqlText = document.getElementById("sql-raw").textContent.trim();
+
+        var pageTitleEl = document.getElementById("page-title");
+        var headingEl = document.getElementById("report-heading");
+        var questionEl = document.getElementById("report-question");
+        var toolbarLabelEl = document.getElementById("sql-toolbar-label");
+        var sqlCodeEl = document.getElementById("sql-code");
+        var detailsEl = document.getElementById("result-details");
+
+        var followupInput = document.getElementById("followup-question");
+        var followupBtn = document.getElementById("followup-btn");
+        var followupStatus = document.getElementById("followup-status");
+        var followupError = document.getElementById("followup-error");
+
         var copyBtn = document.getElementById("copy-btn");
         var downloadBtn = document.getElementById("download-btn");
+
+        function escapeHtml(str) {
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        // Mirrors the two EJS branches above (isEmptyResult vs normal),
+        // so a follow-up response renders exactly like a fresh page load.
+        function buildDetailsHtml(data) {
+          if (data.isEmptyResult) {
+            if (!data.description) return "";
+            return (
+              '<section class="record-section">' +
+              "<h2>Why this can't be run</h2>" +
+              '<p class="notfound-text">' + escapeHtml(data.description) + "</p>" +
+              "</section>"
+            );
+          }
+
+          var html = "";
+
+          if (data.description) {
+            html +=
+              '<section class="record-section">' +
+              "<h2>Result summary</h2>" +
+              '<div class="insight-card">' +
+              '<p class="insight-title">' + escapeHtml(data.description) + "</p>" +
+              "</div>" +
+              "</section>";
+          }
+
+          if (data.notFound) {
+            html +=
+              '<section class="record-section">' +
+              "<h2>If no records are found</h2>" +
+              '<p class="notfound-text">' + escapeHtml(data.notFound) + "</p>" +
+              "</section>";
+          }
+
+          return html;
+        }
+
+        function applyResult(data) {
+          conversationId = data.conversationId;
+          pageEl.setAttribute("data-conversation-id", conversationId);
+
+          sqlText = data.sql;
+
+          pageTitleEl.textContent = data.heading + " — SQL Query Generator";
+          headingEl.textContent = data.heading;
+          questionEl.textContent = '"' + data.question + '"';
+          toolbarLabelEl.textContent = data.isEmptyResult ? "Note" : "T-SQL / SQL Server";
+          sqlCodeEl.textContent = data.sql;
+          detailsEl.innerHTML = buildDetailsHtml(data);
+        }
+
+        function setFollowupLoading(isLoading) {
+          followupBtn.disabled = isLoading;
+          followupBtn.textContent = isLoading ? "Refining..." : "Refine Query";
+          followupStatus.textContent = isLoading ? "This can take a few seconds." : "";
+        }
+
+        function showFollowupError(message) {
+          followupError.textContent = message;
+          followupError.style.display = "block";
+        }
+
+        function clearFollowupError() {
+          followupError.style.display = "none";
+          followupError.textContent = "";
+        }
+
+        async function sendFollowup() {
+          var question = followupInput.value.trim();
+          if (!question) return;
+
+          clearFollowupError();
+          setFollowupLoading(true);
+
+          try {
+            var res = await fetch("/api/generate-sql", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ conversationId: conversationId, question: question }),
+            });
+
+            var data = await res.json();
+
+            if (!res.ok) {
+              throw new Error(data.error || "Couldn't generate a query.");
+            }
+
+            applyResult(data);
+            followupInput.value = "";
+          } catch (err) {
+            showFollowupError(err.message || "Something went wrong. Please try again.");
+          } finally {
+            setFollowupLoading(false);
+          }
+        }
+
+        followupBtn.addEventListener("click", sendFollowup);
+
+        followupInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            sendFollowup();
+          }
+        });
 
         function copySql(btn) {
           navigator.clipboard.writeText(sqlText).then(function () {

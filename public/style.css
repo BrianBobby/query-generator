@@ -76,7 +76,7 @@ body {
   margin-bottom: 10px;
 }
 
-textarea#question {
+.app-textarea {
   width: 100%;
   min-height: 140px;
   resize: vertical;
@@ -90,7 +90,7 @@ textarea#question {
   transition: border-color 0.15s ease;
 }
 
-textarea#question:focus {
+.app-textarea:focus {
   outline: none;
   border-color: var(--forest);
   background: #fff;
@@ -176,6 +176,10 @@ button.primary-btn:disabled {
   border-radius: var(--radius);
   font-size: 0.9rem;
   margin-bottom: 24px;
+}
+
+.error-banner.inline {
+  margin: 16px 0 0;
 }
 
 .hint {
